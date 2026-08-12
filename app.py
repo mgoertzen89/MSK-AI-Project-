@@ -5,7 +5,7 @@ import json
 import os
 
 # ==============================================================================
-# 1. PAGE CONFIGURATION & DARK MODE STYLING
+# 1. PAGE CONFIGURATION & MODERN LIGHT WORKSPACE THEME
 # ==============================================================================
 st.set_page_config(
     page_title="MSK Clinical Simulator",
@@ -14,82 +14,93 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Dark Theme & UI Refinements
+# Modern, High-Contrast Light Workspace Styling
 st.markdown("""
 <style>
-    /* Dark Theme Backgrounds */
+    /* Main Canvas Background */
     .stApp {
-        background-color: #0E1117;
-        color: #E0E6ED;
+        background-color: #F8FAFC;
+        color: #0F172A;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #161B22 !important;
-        border-right: 1px solid #30363D;
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E2E8F0;
     }
 
     /* Cards & Containers */
-    div[data-testid="stExpander"], div[data-testid="stForm"] {
-        background-color: #1E222A !important;
-        border: 1px solid #30363D !important;
-        border-radius: 8px !important;
-        padding: 1rem !important;
+    div[data-testid="stExpander"], div[data-testid="stForm"], .css-card {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 1.25rem !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
     }
 
-    /* Status & Info Boxes */
+    /* Status & Info Callouts */
     div.stAlert {
-        background-color: #161B22 !important;
-        border: 1px solid #30363D !important;
-        color: #58A6FF !important;
-        border-radius: 8px !important;
+        background-color: #EFF6FF !important;
+        border: 1px solid #BFDBFE !important;
+        color: #1E40AF !important;
+        border-radius: 10px !important;
     }
 
-    /* Buttons */
+    /* Primary & Action Buttons */
     .stButton>button {
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
         transition: all 0.2s ease-in-out !important;
+        border: 1px solid #CBD5E1 !important;
+        background-color: #FFFFFF !important;
+        color: #334155 !important;
+    }
+    .stButton>button:hover {
+        background-color: #F1F5F9 !important;
+        border-color: #94A3B8 !important;
     }
     .stButton>button[kind="primary"] {
-        background-color: #238636 !important;
+        background-color: #2563EB !important;
         color: #FFFFFF !important;
         border: none !important;
     }
     .stButton>button[kind="primary"]:hover {
-        background-color: #2EA043 !important;
-        box-shadow: 0 0 10px rgba(46, 160, 67, 0.4);
+        background-color: #1D4ED8 !important;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
     }
 
-    /* Chat Bubbles */
+    /* Chat Interface */
     div[data-testid="stChatMessage"] {
-        background-color: #161B22 !important;
-        border: 1px solid #30363D !important;
-        border-radius: 8px !important;
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        padding: 0.85rem !important;
         margin-bottom: 0.5rem !important;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
     }
 
-    /* Input Fields */
+    /* High-Contrast Input Fields */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div {
-        background-color: #0D1117 !important;
-        color: #F0F6FC !important;
-        border: 1px solid #30363D !important;
-        border-radius: 6px !important;
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 8px !important;
     }
     .stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
-        border-color: #58A6FF !important;
-        box-shadow: 0 0 5px rgba(88, 166, 255, 0.3) !important;
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
     }
     
-    /* Headers & Text */
-    h1, h2, h3 {
-        color: #F0F6FC !important;
-        font-weight: 600 !important;
+    /* Typography Overrides */
+    h1, h2, h3, h4 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
     }
     
-    /* Divider */
+    /* Section Dividers */
     hr {
-        border-color: #30363D !important;
+        border-color: #E2E8F0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -102,7 +113,7 @@ client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 MODEL_NAME = "llama-3.1-8b-instant"
 DATA_FILE = "cases.json"
 
-ADMIN_PASSWORD = "mgoertze"  # Updated Admin Password
+ADMIN_PASSWORD = "mgoertze"
 
 OBJECTIVE_CATEGORIES = [
     "Observation",
@@ -311,7 +322,7 @@ def save_cases_to_disk(case_data):
     try:
         with open(DATA_FILE, "w") as f:
             json.dump(case_data, f, indent=4)
-        st.toast("Case settings updated locally!", icon="✅")
+        st.toast("Case database updated!", icon="✅")
     except Exception as e:
         st.error(f"Error saving cases to disk: {e}")
 
@@ -435,33 +446,39 @@ def match_objective_query(query_text, case_obj_data):
 # 8. LOGIN GATEWAY
 # ==============================================================================
 if not st.session_state.ccid:
-    st.markdown("<h1 style='text-align: center; color: #58A6FF;'>🩺 MSK Clinical Assessment Simulator</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8B949E;'>Standardized Patient Interaction & Case Assessment Suite</p>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.8, 1])
     with col2:
-        with st.container():
-            st.markdown("### 🔐 User Authentication")
-            ccid_input = st.text_input("Enter Institutional CCID:", placeholder="e.g., MGOERTZE99")
-            if st.button("Access Clinical Portal", type="primary", use_container_width=True):
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h1 style="color: #1E293B; font-size: 2.25rem; font-weight: 800; margin-bottom: 0.5rem;">🩺 MSK Clinical Assessment Simulator</h1>
+            <p style="color: #64748B; font-size: 1rem;">Standardized Patient Simulation & Interactive Case Engine</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            st.markdown("##### 🔐 Clinical Portal Sign-In")
+            ccid_input = st.text_input("Institutional CCID Number:", placeholder="e.g., MGOERTZE99")
+            submitted = st.form_submit_button("Access Simulator", type="primary", use_container_width=True)
+            if submitted:
                 if ccid_input.strip():
                     st.session_state.ccid = ccid_input.strip()
                     st.rerun()
                 else:
-                    st.warning("A valid CCID sequence is mandatory.")
+                    st.warning("Please provide a valid CCID identifier.")
     st.stop()
 
 # ==============================================================================
 # 9. SIDEBAR CONTROL PANEL
 # ==============================================================================
 st.sidebar.markdown("### 🩺 Control Center")
-st.sidebar.markdown(f"**Active User:** `{st.session_state.ccid}`")
+st.sidebar.markdown(f"**Practitioner CCID:** `{st.session_state.ccid}`")
 
 nav_options = ["Student Portal"]
 if st.session_state.is_admin:
     nav_options.append("Admin/Instructor Editor")
 
-role = st.sidebar.radio("Navigation Mode:", nav_options)
+role = st.sidebar.radio("Navigation View:", nav_options)
 st.sidebar.markdown("---")
 
 if not st.session_state.is_admin:
@@ -475,13 +492,13 @@ if not st.session_state.is_admin:
             else:
                 st.error("Invalid password.")
 else:
-    st.sidebar.success("🔓 Admin Mode Unlocked")
+    st.sidebar.success("🔓 Admin Mode Active")
     if st.sidebar.button("Lock Admin Access", use_container_width=True):
         st.session_state.is_admin = False
         st.rerun()
 
 st.sidebar.markdown("---")
-if st.sidebar.button("Terminate Session", use_container_width=True):
+if st.sidebar.button("End Simulation Session", use_container_width=True):
     st.session_state.ccid = None
     st.session_state.is_admin = False
     st.session_state.encounter_phase = 1
@@ -499,12 +516,12 @@ if st.sidebar.button("Terminate Session", use_container_width=True):
 # 10. ADMIN EDITOR VIEW
 # ==============================================================================
 if role == "Admin/Instructor Editor":
-    st.title("🛠️ Admin Case Management Matrix")
+    st.title("🛠️ Case Management & Case Authoring Engine")
     
     cat_col, case_col = st.columns(2)
     with cat_col:
         admin_categories = list(st.session_state.case_library.keys())
-        selected_category = st.selectbox("1. Select Joint Domain:", admin_categories)
+        selected_category = st.selectbox("1. Select Target Anatomical Domain:", admin_categories)
         
     admin_category_cases = st.session_state.case_library.get(selected_category, {})
     admin_case_keys = list(admin_category_cases.keys())
@@ -512,12 +529,12 @@ if role == "Admin/Instructor Editor":
     with case_col:
         if admin_case_keys:
             selected_case_key = st.selectbox(
-                "2. Select Patient Case:", 
+                "2. Select Case Record:", 
                 admin_case_keys,
                 format_func=lambda k: f"{k} — Patient: {admin_category_cases[k].get('name', 'Unknown')}"
             )
         else:
-            st.error(f"No cases found for category: {selected_category}")
+            st.error(f"No active cases for domain: {selected_category}")
             st.stop()
         
     case_data = admin_category_cases[selected_case_key]
@@ -529,36 +546,36 @@ if role == "Admin/Instructor Editor":
     with st.form("admin_case_form"):
         st.subheader(f"Editing {selected_case_key}: Patient {case_data.get('name', '')} ({selected_category})")
         
-        tab1, tab2 = st.tabs(["🗣️ Subjective Case Parameters", "📊 Objective Matrix"])
+        tab1, tab2 = st.tabs(["🗣️ Subjective Case Parameters", "📊 Physical Exam Matrix"])
         
         with tab1:
-            e_forthcoming = st.slider("Patient Forthcomingness (1-5):", 1, 5, int(case_data.get("forthcomingness", 1)))
+            e_forthcoming = st.slider("Patient Communication Style (1 = Reluctant, 5 = Verbose):", 1, 5, int(case_data.get("forthcomingness", 1)))
             col1, col2 = st.columns(2)
             with col1:
                 e_name = st.text_input("Patient Name", value=case_data.get("name", ""))
-                e_demeanor = st.text_input("Demeanor", value=case_data.get("demeanor", ""))
+                e_demeanor = st.text_input("Visual Demeanor / Posture", value=case_data.get("demeanor", ""))
                 e_chief = st.text_area("Chief Complaint", value=case_data.get("chief_complaint", ""))
-                e_hpi = st.text_area("HPI", value=case_data.get("history_present_illness", ""))
-                e_loc = st.text_input("Location", value=case_data.get("location_pain", ""))
-                e_onset = st.text_input("Onset", value=case_data.get("onset_pain", ""))
-                e_type = st.text_input("Type", value=case_data.get("type_pain", ""))
+                e_hpi = st.text_area("HPI Narrative", value=case_data.get("history_present_illness", ""))
+                e_loc = st.text_input("Pain Location", value=case_data.get("location_pain", ""))
+                e_onset = st.text_input("Symptom Onset", value=case_data.get("onset_pain", ""))
+                e_type = st.text_input("Pain Quality", value=case_data.get("type_pain", ""))
             with col2:
                 e_agg = st.text_area("Aggravating Factors", value=case_data.get("aggravating_factors", ""))
                 e_ease = st.text_area("Easing Factors", value=case_data.get("easing_factors", ""))
-                e_rad = st.text_input("Radiation", value=case_data.get("radiation", ""))
-                e_red = st.text_area("Red Flags", value=case_data.get("red_flags", ""))
+                e_rad = st.text_input("Symptom Radiation", value=case_data.get("radiation", ""))
+                e_red = st.text_area("Red Flag Screen", value=case_data.get("red_flags", ""))
                 e_soc = st.text_area("Social History", value=case_data.get("social_history", ""))
                 e_pmh = st.text_area("Past Medical History", value=case_data.get("past_medical_history", ""))
-                e_diff = st.text_input("Master Diagnosis Key", value=case_data.get("diff_dx", ""))
+                e_diff = st.text_input("Target Diagnosis Key", value=case_data.get("diff_dx", ""))
 
         with tab2:
-            st.markdown(f"### Edit Physical Exam Findings ({selected_category})")
+            st.markdown(f"### Objective Physical Findings Matrix ({selected_category})")
             edited_objective_data = {}
             for cat in OBJECTIVE_CATEGORIES:
                 current_val = case_data["objective_data"].get(cat, "")
-                edited_objective_data[cat] = st.text_area(f"📌 {cat}", value=current_val, height=100)
+                edited_objective_data[cat] = st.text_area(f"📌 {cat}", value=current_val, height=90)
 
-        save_submitted = st.form_submit_button("Save Case Parameters", type="primary")
+        save_submitted = st.form_submit_button("Save Case Data", type="primary", use_container_width=True)
         
         if save_submitted:
             st.session_state.case_library[selected_category][selected_case_key].update({
@@ -585,116 +602,140 @@ if role == "Admin/Instructor Editor":
 # 11. STUDENT ENCOUNTER PORTAL
 # ==============================================================================
 else:
-    st.title("🎓 Interactive Clinical Assessment")
-    
-    col_cat, col_case = st.columns(2)
-    with col_cat:
-        available_categories = list(st.session_state.case_library.keys())
-        student_category = st.selectbox("Select Joint Category:", available_categories)
+    # Top Bar Case Selector Card
+    with st.container():
+        col_cat, col_case = st.columns(2)
+        with col_cat:
+            available_categories = list(st.session_state.case_library.keys())
+            student_category = st.selectbox("Anatomical Domain:", available_categories)
 
-    category_cases = st.session_state.case_library.get(student_category, {})
-    case_keys = list(category_cases.keys())
+        category_cases = st.session_state.case_library.get(student_category, {})
+        case_keys = list(category_cases.keys())
 
-    with col_case:
-        if case_keys:
-            student_case_key = st.selectbox(
-                "Select Patient Case:", 
-                case_keys,
-                format_func=lambda k: f"{k} — Patient: {category_cases[k].get('name', 'Unknown')}"
-            )
-        else:
-            st.error(f"No cases found for category: {student_category}")
-            st.stop()
-        
-    active_case = category_cases[student_case_key]
-    if "objective_data" not in active_case:
-        active_case["objective_data"] = get_default_objective_template_for_region(student_category)
+        with col_case:
+            if case_keys:
+                student_case_key = st.selectbox(
+                    "Patient Case File:", 
+                    case_keys,
+                    format_func=lambda k: f"{k} — Patient: {category_cases[k].get('name', 'Unknown')}"
+                )
+            else:
+                st.error(f"No cases found for category: {student_category}")
+                st.stop()
+            
+        active_case = category_cases[student_case_key]
+        if "objective_data" not in active_case:
+            active_case["objective_data"] = get_default_objective_template_for_region(student_category)
 
-    unique_case_id = f"{student_category}_{student_case_key}"
-    if "last_chosen_case_id" not in st.session_state or st.session_state.last_chosen_case_id != unique_case_id:
-        st.session_state.subjective_messages = []
-        st.session_state.objective_tests = []
-        st.session_state.encounter_phase = 1
-        st.session_state.initial_differentials = ["", "", ""]
-        st.session_state.tx_final_dx = ""
-        st.session_state.tx_education = ""
-        st.session_state.tx_pain_mgmt = ""
-        st.session_state.tx_mobility = ""
-        st.session_state.tx_strength = ""
-        st.session_state.last_chosen_case_id = unique_case_id
+        unique_case_id = f"{student_category}_{student_case_key}"
+        if "last_chosen_case_id" not in st.session_state or st.session_state.last_chosen_case_id != unique_case_id:
+            st.session_state.subjective_messages = []
+            st.session_state.objective_tests = []
+            st.session_state.encounter_phase = 1
+            st.session_state.initial_differentials = ["", "", ""]
+            st.session_state.tx_final_dx = ""
+            st.session_state.tx_education = ""
+            st.session_state.tx_pain_mgmt = ""
+            st.session_state.tx_mobility = ""
+            st.session_state.tx_strength = ""
+            st.session_state.last_chosen_case_id = unique_case_id
 
-    st.info(f"📋 **Active Encounter:** {student_category} ({student_case_key}) — Patient: **{active_case.get('name', 'Unknown')}**")
-
-    # ENCOUNTER PROGRESS BAR
+    # Progress Indicator Bar
     phase_names = {
         1: "Phase 1: Subjective History",
         2: "Phase 2: Objective Physical Exam",
-        3: "Phase 3: Treatment & Management Plan",
+        3: "Phase 3: Management Plan",
         4: "Encounter Complete"
     }
     progress_val = {1: 0.25, 2: 0.50, 3: 0.75, 4: 1.0}[st.session_state.encounter_phase]
-    st.progress(progress_val, text=f"**Status:** {phase_names[st.session_state.encounter_phase]}")
+    st.progress(progress_val, text=f"**Current Encounter Stage:** {phase_names[st.session_state.encounter_phase]}")
     st.markdown("---")
 
     # --------------------------------------------------------------------------
-    # PHASE 1: SUBJECTIVE HISTORY
+    # PHASE 1: SUBJECTIVE HISTORY (SPLIT WORKSPACE LAYOUT)
     # --------------------------------------------------------------------------
     if st.session_state.encounter_phase == 1:
-        st.subheader("🗣️ Phase 1: Subjective History Taking")
+        st.subheader("🗣️ Phase 1: Interactive History Taking")
         
-        for msg in st.session_state.subjective_messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        col_left, col_right = st.columns([1, 1.6], gap="large")
+        
+        # Left Panel: Patient Overview & Suggested History Questions
+        with col_left:
+            st.markdown(f"### Patient: **{active_case.get('name', 'Unknown')}**")
+            st.markdown(f"**Visual Demeanor:** {active_case.get('demeanor', 'N/A')}")
+            st.info(f"**Primary Complaint:** {active_case.get('chief_complaint', 'N/A')}")
+            
+            with st.expander("💡 History Taking Prompts", expanded=True):
+                st.markdown("""
+                - *What brings you into the clinic today?*
+                - *Can you point to where the pain is most intense?*
+                - *How and when did these symptoms first begin?*
+                - *What specific movements make your symptoms worse or better?*
+                - *Does the pain travel or radiate anywhere else?*
+                - *Are you having any numbness, tingling, or weakness?*
+                """)
+            
+            st.markdown("---")
+            
+            @st.dialog("Submit Initial Differential Diagnoses")
+            def open_phase1_dialog():
+                st.write("Provide your top 3 working differential diagnoses from history taking to unlock the physical exam.")
+                with st.form("phase1_diff_form"):
+                    dx1 = st.text_input("Primary Suspected Differential:")
+                    dx2 = st.text_input("Secondary Differential:")
+                    dx3 = st.text_input("Tertiary Differential:")
+                    
+                    if st.form_submit_button("Submit & Unlock Physical Exam", type="primary", use_container_width=True):
+                        if not dx1.strip() or not dx2.strip() or not dx3.strip():
+                            st.error("All 3 differential fields must be populated.")
+                        else:
+                            st.session_state.initial_differentials = [dx1.strip(), dx2.strip(), dx3.strip()]
+                            st.session_state.encounter_phase = 2
+                            st.rerun()
 
-        if prompt := st.chat_input("Ask your patient a question..."):
-            st.session_state.subjective_messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            with st.chat_message("assistant"):
-                if not client:
-                    st.error("GROQ_API_KEY is missing from Streamlit secrets.")
+            if st.button("➡️ Proceed to Physical Exam", type="primary", use_container_width=True):
+                if not st.session_state.subjective_messages:
+                    st.warning("Please ask at least one subjective question first.")
                 else:
-                    try:
-                        system_instruction = build_patient_instructions(active_case)
-                        completion = client.chat.completions.create(
-                            model=MODEL_NAME,
-                            messages=[
-                                {"role": "system", "content": system_instruction},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.6,
-                            max_tokens=300
-                        )
-                        ai_text = completion.choices[0].message.content
-                        st.markdown(ai_text)
-                        st.session_state.subjective_messages.append({"role": "assistant", "content": ai_text})
-                    except Exception as e:
-                        st.error(f"Groq API Error: {e}")
+                    open_phase1_dialog()
 
-        st.markdown("---")
-        
-        @st.dialog("Submit Initial Differential Diagnoses")
-        def open_phase1_dialog():
-            st.write("Enter your top 3 differential diagnoses based on the subjective history to unlock Phase 2.")
-            with st.form("phase1_diff_form"):
-                dx1 = st.text_input("Primary Suspected Differential:")
-                dx2 = st.text_input("Secondary Differential:")
-                dx3 = st.text_input("Tertiary Differential:")
-                
-                if st.form_submit_button("Submit & Proceed to Objective Exam", type="primary"):
-                    if not dx1.strip() or not dx2.strip() or not dx3.strip():
-                        st.error("Please complete all 3 differential fields.")
-                    else:
-                        st.session_state.initial_differentials = [dx1.strip(), dx2.strip(), dx3.strip()]
-                        st.session_state.encounter_phase = 2
-                        st.rerun()
+        # Right Panel: Interactive Patient Consultation Chat
+        with col_right:
+            st.markdown("### Interactive Consultation")
+            chat_container = st.container(height=450)
+            with chat_container:
+                if not st.session_state.subjective_messages:
+                    st.caption("No dialogue exchange recorded yet. Type a question below to begin history taking.")
+                for msg in st.session_state.subjective_messages:
+                    with st.chat_message(msg["role"]):
+                        st.markdown(msg["content"])
 
-        if st.button("➡️ Move to Objective Exam", type="primary", use_container_width=True):
-            if not st.session_state.subjective_messages:
-                st.warning("Please conduct history taking before proceeding.")
-            else:
-                open_phase1_dialog()
+            if prompt := st.chat_input("Ask patient a question..."):
+                st.session_state.subjective_messages.append({"role": "user", "content": prompt})
+                with chat_container:
+                    with st.chat_message("user"):
+                        st.markdown(prompt)
+
+                    with st.chat_message("assistant"):
+                        if not client:
+                            st.error("GROQ_API_KEY missing from secrets configuration.")
+                        else:
+                            try:
+                                system_instruction = build_patient_instructions(active_case)
+                                completion = client.chat.completions.create(
+                                    model=MODEL_NAME,
+                                    messages=[
+                                        {"role": "system", "content": system_instruction},
+                                        {"role": "user", "content": prompt}
+                                    ],
+                                    temperature=0.6,
+                                    max_tokens=300
+                                )
+                                ai_text = completion.choices[0].message.content
+                                st.markdown(ai_text)
+                                st.session_state.subjective_messages.append({"role": "assistant", "content": ai_text})
+                            except Exception as e:
+                                st.error(f"API Error: {e}")
 
     # --------------------------------------------------------------------------
     # PHASE 2: OBJECTIVE PHYSICAL EXAM
@@ -702,20 +743,25 @@ else:
     elif st.session_state.encounter_phase == 2:
         st.subheader("🔬 Phase 2: Objective Physical Examination")
 
-        with st.expander("📌 Phase 1 Initial Differentials", expanded=False):
+        with st.expander("📌 Working Differentials from History Taking", expanded=False):
             for i, d in enumerate(st.session_state.initial_differentials, 1):
                 st.markdown(f"**{i}.** {d}")
 
-        st.markdown("### Physical Examination Requests")
-        user_test_query = st.text_input(
-            "Enter evaluation or test to perform:", 
-            key="test_input_field", 
-            placeholder=f"e.g., {student_category} special tests, AROM, or palpation"
-        )
+        st.markdown("### Perform Physical Examinations")
+        col_input, col_btn = st.columns([3, 1])
+        with col_input:
+            user_test_query = st.text_input(
+                "Request specific physical test or movement:", 
+                key="test_input_field", 
+                placeholder=f"e.g., {student_category} special tests, AROM, or palpation"
+            )
+        with col_btn:
+            st.write("&nbsp;")
+            execute_click = st.button("Execute Test", type="primary", use_container_width=True)
 
-        if st.button("Execute Exam Procedure", type="primary"):
+        if execute_click:
             if not user_test_query.strip():
-                st.warning("Please type a valid evaluation request.")
+                st.warning("Please type an examination request.")
             else:
                 category_name, finding_text = match_objective_query(user_test_query, active_case.get("objective_data", {}))
                 st.session_state.objective_tests.append({
@@ -739,7 +785,7 @@ else:
         st.markdown("---")
         if st.button("➡️ Proceed to Treatment Phase", type="primary", use_container_width=True):
             if not st.session_state.objective_tests:
-                st.warning("Perform at least one objective evaluation first.")
+                st.warning("Perform at least one physical exam test before moving forward.")
             else:
                 st.session_state.encounter_phase = 3
                 st.rerun()
@@ -748,27 +794,27 @@ else:
     # PHASE 3: TREATMENT & MANAGEMENT PLAN
     # --------------------------------------------------------------------------
     elif st.session_state.encounter_phase >= 3:
-        st.subheader("💊 Phase 3: Treatment & Management Plan")
+        st.subheader("💊 Phase 3: Clinical Management & Prescription")
 
-        with st.expander("🔍 Review Case Summary"):
-            st.markdown("**Phase 1 Differentials:** " + ", ".join(st.session_state.initial_differentials))
+        with st.expander("🔍 Review Prior Phase Data"):
+            st.markdown("**Phase 1 Working Differentials:** " + ", ".join(st.session_state.initial_differentials))
             st.markdown("**Phase 2 Key Findings:**")
             for t in st.session_state.objective_tests:
                 st.markdown(f"- **{t['requested']}** ({t['category']}): {t['findings']}")
 
         if st.session_state.encounter_phase == 3:
             with st.form("treatment_phase_form"):
-                st.markdown("### 📝 Clinical Management Plan")
+                st.markdown("### 📝 Patient Treatment & Rehabilitation Plan")
                 
-                f_dx = st.text_input("1. Final Diagnosis:")
-                f_edu = st.text_area("2. Patient Education:", height=80)
-                f_pain = st.text_area("3. Pain Management Strategy:", height=80)
-                f_mob = st.text_area("4. Mobility Prescription:", height=80)
-                f_str = st.text_area("5. Strength/Rehabilitation Plan:", height=80)
+                f_dx = st.text_input("1. Confirmed Final Diagnosis:")
+                f_edu = st.text_area("2. Patient Education & Ergonomic Advice:", height=75)
+                f_pain = st.text_area("3. Symptom & Pain Management Strategy:", height=75)
+                f_mob = st.text_area("4. Mobility / Flexibility Prescription:", height=75)
+                f_str = st.text_area("5. Resistance & Rehabilitation Program:", height=75)
 
-                if st.form_submit_button("Submit Complete Plan", type="primary"):
+                if st.form_submit_button("Submit Management Plan", type="primary", use_container_width=True):
                     if not f_dx.strip() or not f_edu.strip() or not f_pain.strip() or not f_mob.strip() or not f_str.strip():
-                        st.error("Please fill in all 5 management fields.")
+                        st.error("Please fill in all 5 management components.")
                     else:
                         st.session_state.tx_final_dx = f_dx.strip()
                         st.session_state.tx_education = f_edu.strip()
@@ -785,14 +831,14 @@ else:
             st.markdown("---")
             col_a, col_b = st.columns(2)
             with col_a:
-                st.markdown("**Education:**")
+                st.markdown("**Patient Education:**")
                 st.info(st.session_state.tx_education)
                 st.markdown("**Pain Management:**")
                 st.info(st.session_state.tx_pain_mgmt)
             with col_b:
-                st.markdown("**Mobility:**")
+                st.markdown("**Mobility Prescription:**")
                 st.info(st.session_state.tx_mobility)
-                st.markdown("**Strength:**")
+                st.markdown("**Rehabilitation Program:**")
                 st.info(st.session_state.tx_strength)
 
     # ==============================================================================
@@ -805,7 +851,7 @@ else:
             st.sidebar.warning("No encounter data recorded.")
         else:
             export = f"==================================================\n"
-            export += f"OFFICIAL MSK 3-PHASE EVALUATION TRANSCRIPT\n"
+            export += f"OFFICIAL MSK EVALUATION TRANSCRIPT\n"
             export += f"==================================================\n"
             export += f"Student CCID: {st.session_state.ccid}\n"
             export += f"Joint Region: {student_category} ({student_case_key})\n"
