@@ -3,19 +3,106 @@ import pandas as pd
 from groq import Groq
 import json
 import os
-import requests
-import base64
 
 # ==============================================================================
-# 1. API & REPO CONFIGURATION & DIAGNOSTICS
+# 1. PAGE CONFIGURATION & DARK MODE STYLING
+# ==============================================================================
+st.set_page_config(
+    page_title="MSK Clinical Simulator",
+    page_icon="🩺",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom Dark Theme & UI Refinements
+st.markdown("""
+<style>
+    /* Dark Theme Backgrounds */
+    .stApp {
+        background-color: #0E1117;
+        color: #E0E6ED;
+    }
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #161B22 !important;
+        border-right: 1px solid #30363D;
+    }
+
+    /* Cards & Containers */
+    div[data-testid="stExpander"], div[data-testid="stForm"] {
+        background-color: #1E222A !important;
+        border: 1px solid #30363D !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+    }
+
+    /* Status & Info Boxes */
+    div.stAlert {
+        background-color: #161B22 !important;
+        border: 1px solid #30363D !important;
+        color: #58A6FF !important;
+        border-radius: 8px !important;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .stButton>button[kind="primary"] {
+        background-color: #238636 !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    .stButton>button[kind="primary"]:hover {
+        background-color: #2EA043 !important;
+        box-shadow: 0 0 10px rgba(46, 160, 67, 0.4);
+    }
+
+    /* Chat Bubbles */
+    div[data-testid="stChatMessage"] {
+        background-color: #161B22 !important;
+        border: 1px solid #30363D !important;
+        border-radius: 8px !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Input Fields */
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div {
+        background-color: #0D1117 !important;
+        color: #F0F6FC !important;
+        border: 1px solid #30363D !important;
+        border-radius: 6px !important;
+    }
+    .stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
+        border-color: #58A6FF !important;
+        box-shadow: 0 0 5px rgba(88, 166, 255, 0.3) !important;
+    }
+    
+    /* Headers & Text */
+    h1, h2, h3 {
+        color: #F0F6FC !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Divider */
+    hr {
+        border-color: #30363D !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
+# 2. INITIALIZATION & API CONFIGURATION
 # ==============================================================================
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "").strip()
-GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "").strip()
-GITHUB_REPO = st.secrets.get("GITHUB_REPO", "").strip()  # Expected format: "username/repo-name"
-
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 MODEL_NAME = "llama-3.1-8b-instant"
 DATA_FILE = "cases.json"
+
+ADMIN_PASSWORD = "mgoertze"  # Updated Admin Password
 
 OBJECTIVE_CATEGORIES = [
     "Observation",
@@ -27,46 +114,11 @@ OBJECTIVE_CATEGORIES = [
     "Special Tests"
 ]
 
-# --- DEEP AUTH DIAGNOSTIC CHECK IN SIDEBAR ---
-st.sidebar.markdown("### 🔍 GitHub Auth Debugger")
-st.sidebar.caption("Verifying token and secret configuration:")
-
-clean_repo = GITHUB_REPO.replace("https://github.com/", "").replace(".git", "").strip("/")
-st.sidebar.text(f"Repo read: '{clean_repo}'")
-st.sidebar.text(f"Token length: {len(GITHUB_TOKEN)} chars")
-st.sidebar.text(f"Token prefix: {GITHUB_TOKEN[:4]}..." if GITHUB_TOKEN else "Token prefix: NONE")
-
-if GITHUB_TOKEN and clean_repo:
-    url = f"https://api.github.com/repos/{clean_repo}"
-    
-    # Test 1: Unauthenticated Public Check
-    unauth_r = requests.get(url)
-    st.sidebar.text(f"Public API Status: {unauth_r.status_code}")
-    
-    # Test 2: Authenticated Check
-    auth_headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "X-GitHub-Api-Version": "2022-11-28"
-    }
-    auth_r = requests.get(url, headers=auth_headers)
-    st.sidebar.text(f"Auth API Status: {auth_r.status_code}")
-    
-    if auth_r.status_code == 200:
-        st.sidebar.success(f" Connected to {clean_repo}")
-    else:
-        st.sidebar.error(f"GitHub Error ({auth_r.status_code}): {auth_r.json().get('message', 'Unknown Error')}")
-else:
-    st.sidebar.warning(" Missing GITHUB_TOKEN or GITHUB_REPO in secrets.")
-
-st.sidebar.markdown("---")
-
 # ==============================================================================
-# 2. REGION-SPECIFIC DEFAULT OBJECTIVE FINDINGS TEMPLATES
+# 3. REGION-SPECIFIC DEFAULT OBJECTIVE FINDINGS TEMPLATES
 # ==============================================================================
 def get_default_objective_template_for_region(region_name):
     r = str(region_name).lower()
-    
     if "cervical" in r or "neck" in r:
         return {
             "Observation": "Forward head posture, protracted shoulder girdle, hypertonic upper trapezius visual bulk.",
@@ -159,7 +211,7 @@ def get_default_objective_template_for_region(region_name):
         }
 
 # ==============================================================================
-# 3. COMPLETE DEFAULT CASE LIBRARY (48 PATIENT CASES)
+# 4. DEFAULT CASE LIBRARY
 # ==============================================================================
 DEFAULT_CASE_LIBRARY = {
     "Cervical spine": {
@@ -194,70 +246,6 @@ DEFAULT_CASE_LIBRARY = {
             "social_history": "Warehouse supervisor.",
             "past_medical_history": "Hypertension.",
             "diff_dx": "Cervical Radiculopathy (Right C6)"
-        },
-        "Case 3": {
-            "name": "Charles", "region_label": "Cervical spine", "forthcomingness": 1,
-            "demeanor": "Guarded movements, turns whole torso to look sideways.",
-            "chief_complaint": "Whiplash injury after rear-end car collision 2 weeks ago.",
-            "history_present_illness": "Was stopped at red light when struck from behind; neck felt sore next morning.",
-            "location_pain": "Suboccipital region down to thoracic spine.",
-            "onset_pain": "Acute post-traumatic onset 14 days ago.",
-            "type_pain": "Stiff, aching pain with occasional sharp twinges.",
-            "aggravating_factors": "Any rapid neck rotation or bumpy car rides.",
-            "easing_factors": "Soft cervical collar temporary use, OTC ibuprofen.",
-            "radiation": "Refers across bilateral shoulders.",
-            "red_flags": "Denies dizziness, diplopia, dysarthria, dysphagia, or drop attacks.",
-            "social_history": "Accountant, high stress.",
-            "past_medical_history": "None.",
-            "diff_dx": "Cervical Spine Acceleration-Deceleration Injury (Whiplash Associated Disorder)"
-        },
-        "Case 4": {
-            "name": "Diana", "region_label": "Cervical spine", "forthcomingness": 1,
-            "demeanor": "Frequent massaging of suboccipital area and temples.",
-            "chief_complaint": "Daily headaches starting from back of neck and wrapping around head.",
-            "history_present_illness": "Neck tightness evolving into daily headaches for past 2 months.",
-            "location_pain": "Suboccipital neck radiating to forehead and behind right eye.",
-            "onset_pain": "Gradual progression over 8 weeks.",
-            "type_pain": "Dull band-like pressure, fluctuating intensity.",
-            "aggravating_factors": "Sustained neck flexion, reading, desk work.",
-            "easing_factors": "Suboccipital pressure, dark room, neck traction.",
-            "radiation": "Unilateral temporoparietal and retro-orbital region.",
-            "red_flags": "No visual scotomas, no nausea/vomiting, no focal neuro deficits.",
-            "social_history": "High school teacher.",
-            "past_medical_history": "Migraines in early adulthood.",
-            "diff_dx": "Cervicogenic Headache"
-        },
-        "Case 5": {
-            "name": "Edward", "region_label": "Cervical spine", "forthcomingness": 1,
-            "demeanor": "Elderly male, walks with slightly wide base, cautious.",
-            "chief_complaint": "Clumsy hands, stiffness in neck, and difficulty buttoning shirt.",
-            "history_present_illness": "Over 6 months noticed declining hand dexterity and unsteadiness walking.",
-            "location_pain": "Central neck stiffness, diffuse hand paresthesias.",
-            "onset_pain": "Progressive chronic onset.",
-            "type_pain": "Aching stiffness with bilateral glove-like tingling.",
-            "aggravating_factors": "Cervical extension.",
-            "easing_factors": "Resting seated in recliner.",
-            "radiation": "Bilateral upper extremities and unsteadiness down legs.",
-            "red_flags": "Positive Hoffmann sign potential, hyperreflexia, loss of fine motor skills.",
-            "social_history": "Retired Carpenter.",
-            "past_medical_history": "Osteoarthritis, Cervical Spondylosis.",
-            "diff_dx": "Cervical Spondylotic Myelopathy"
-        },
-        "Case 6": {
-            "name": "Fiona", "region_label": "Cervical spine", "forthcomingness": 1,
-            "demeanor": "Young athlete, holding neck to left side.",
-            "chief_complaint": "Acute onset of severe neck pain after awkward sleeping position.",
-            "history_present_illness": "Woke up 2 days ago completely unable to turn head to the right.",
-            "location_pain": "Unilateral sternocleidomastoid and splenius cervicis.",
-            "onset_pain": "Acute onset 48 hours ago.",
-            "type_pain": "Sharp spasm on attempted motion.",
-            "aggravating_factors": "Right rotation and lateral flexion.",
-            "easing_factors": "Heat, topical analgesic creams, muscle relaxants.",
-            "radiation": "None.",
-            "red_flags": "Denies fever, night sweats, or neurological deficits.",
-            "social_history": "University student.",
-            "past_medical_history": "None.",
-            "diff_dx": "Acute Cervical Facet Torticollis"
         }
     },
     "Lumbar spine": {
@@ -276,86 +264,6 @@ DEFAULT_CASE_LIBRARY = {
             "social_history": "Construction estimator.",
             "past_medical_history": "None.",
             "diff_dx": "Acute Lumbar Strain / Discogenic Low Back Pain"
-        },
-        "Case 2": {
-            "name": "Hannah", "region_label": "Lumbar spine", "forthcomingness": 1,
-            "demeanor": "Leaning to the left when standing (antalgic shift).",
-            "chief_complaint": "Sharp pain shooting down back of left leg to big toe.",
-            "history_present_illness": "Back pain started 2 weeks ago, transformed into severe leg pain 3 days ago.",
-            "location_pain": "Left L5 distribution down posterior-lateral leg.",
-            "onset_pain": "Subacute onset over 14 days.",
-            "type_pain": "Electric, burning, shooting pain.",
-            "aggravating_factors": "Sitting, coughing, sneezing, bending forward.",
-            "easing_factors": "Standing, walking, extension positioning.",
-            "radiation": "Posterolateral thigh, calf, dorsum of foot.",
-            "red_flags": "Mild weakness in dorsiflexion, denies bowel/bladder changes.",
-            "social_history": "Nurse, frequent patient transfers.",
-            "past_medical_history": "Low back pain history.",
-            "diff_dx": "Lumbar Radiculopathy (Left L5 Disc Herniation)"
-        },
-        "Case 3": {
-            "name": "Ian", "region_label": "Lumbar spine", "forthcomingness": 1,
-            "demeanor": "Stooped forward posture while pushing shopping cart.",
-            "chief_complaint": "Leg heaviness and cramping after walking 5 minutes.",
-            "history_present_illness": "Gradual reduction in walking tolerance over past year.",
-            "location_pain": "Bilateral thighs, calves, and lower lumbar region.",
-            "onset_pain": "Insidious chronic progression over 12 months.",
-            "type_pain": "Dull ache, numbness, cramping heaviness.",
-            "aggravating_factors": "Walking, lumbar extension, standing straight.",
-            "easing_factors": "Sitting, bending forward ('shopping cart sign').",
-            "radiation": "Bilateral lower extremities.",
-            "red_flags": "Neurogenic claudication symptoms; vascular pulses intact.",
-            "social_history": "Retired postman.",
-            "past_medical_history": "Hypertension, Osteoarthritis.",
-            "diff_dx": "Lumbar Spinal Stenosis"
-        },
-        "Case 4": {
-            "name": "Julia", "region_label": "Lumbar spine", "forthcomingness": 1,
-            "demeanor": "Arching back frequently, points to localized spot on back.",
-            "chief_complaint": "Localized lower back pain worse when standing and twisting.",
-            "history_present_illness": "Persistent back pain after starting gymnastics rotation 1 month ago.",
-            "location_pain": "Unilateral lower lumbar (L5 area).",
-            "onset_pain": "Gradual onset over 4 weeks.",
-            "type_pain": "Sharp focal pain with extension.",
-            "aggravating_factors": "Lumbar extension, rotation, single-leg stance loading.",
-            "easing_factors": "Flexion, bed rest.",
-            "radiation": "None.",
-            "red_flags": "Denies neurological symptoms in legs.",
-            "social_history": "High school gymnast.",
-            "past_medical_history": "None.",
-            "diff_dx": "Lumbar Spondylolysis / Facet Joint Arthropathy"
-        },
-        "Case 5": {
-            "name": "Kevin", "region_label": "Lumbar spine", "forthcomingness": 1,
-            "demeanor": "Shifting weight side to side while standing.",
-            "chief_complaint": "Deep aching pain over posterior pelvis near beltline.",
-            "history_present_illness": "Pain developed after stepping unexpectedly off a curb 3 weeks ago.",
-            "location_pain": "Sacroiliac joint sulcus, dimple of Venus area.",
-            "onset_pain": "Acute traumatic onset 21 days ago.",
-            "type_pain": "Dull ache with sharp catch during weight transfer.",
-            "aggravating_factors": "Single leg standing, rolling over in bed, sit-to-stand.",
-            "easing_factors": "SI belt support, lying supine, ice.",
-            "radiation": "Posterior thigh down to knee level.",
-            "red_flags": "Denies radicular pain below knee.",
-            "social_history": "Delivery driver.",
-            "past_medical_history": "Hamstring strain.",
-            "diff_dx": "Sacroiliac Joint Dysfunction"
-        },
-        "Case 6": {
-            "name": "Laura", "region_label": "Lumbar spine", "forthcomingness": 1,
-            "demeanor": "Anxious, holding lumbar region with both hands.",
-            "chief_complaint": "Constant dull lumbar ache that wakes her up at night.",
-            "history_present_illness": "Unremitting back pain for 6 weeks, not responding to rest.",
-            "location_pain": "Mid-lumbar spine.",
-            "onset_pain": "Insidious onset 6 weeks ago.",
-            "type_pain": "Deep, boring constant pain.",
-            "aggravating_factors": "Nighttime rest, recumbent positioning.",
-            "easing_factors": "None significant.",
-            "radiation": "Girdle-like around abdomen.",
-            "red_flags": "Unexplained 10lb weight loss, constant night pain, fatigue.",
-            "social_history": "Graphic designer.",
-            "past_medical_history": "Breast cancer survivor in remission.",
-            "diff_dx": "Non-Mechanical Spinal Pathology (Red Flag Screening Required)"
         }
     },
     "Shoulder": {
@@ -374,380 +282,6 @@ DEFAULT_CASE_LIBRARY = {
             "social_history": "Recreational tennis player, office worker.",
             "past_medical_history": "None.",
             "diff_dx": "Subacromial Pain Syndrome / Rotator Cuff Tendinopathy"
-        },
-        "Case 2": {
-            "name": "Marcus", "region_label": "Shoulder", "forthcomingness": 1,
-            "demeanor": "Left arm supported in sling or cradled by right arm.",
-            "chief_complaint": "Inability to lift left arm after fall on shoulder playing rugby.",
-            "history_present_illness": "Tackled 4 days ago, felt sharp tear in shoulder.",
-            "location_pain": "Lateral shoulder and upper arm.",
-            "onset_pain": "Acute traumatic onset 4 days ago.",
-            "type_pain": "Severe sharp pain on movement, weakness.",
-            "aggravating_factors": "Attempted active elevation or abduction.",
-            "easing_factors": "Sling immobilization, ice.",
-            "radiation": "Deltoid muscle belly.",
-            "red_flags": "True weakness on active elevation vs pain inhibition.",
-            "social_history": "Rugby player, electrician.",
-            "past_medical_history": "Prior shoulder subluxation.",
-            "diff_dx": "Full-Thickness Rotator Cuff Tear (Supraspinatus)"
-        },
-        "Case 3": {
-            "name": "Nancy", "region_label": "Shoulder", "forthcomingness": 1,
-            "demeanor": "Rigid posture, arm held glued to torso.",
-            "chief_complaint": "Severe global stiffness in right shoulder, cannot fasten bra.",
-            "history_present_illness": "Gradual pain onset 4 months ago followed by progressive freezing.",
-            "location_pain": "Deep shoulder joint, anterolateral capsule.",
-            "onset_pain": "Insidious 4-month progression.",
-            "type_pain": "Throb at night, severe sharp pain at end-range.",
-            "aggravating_factors": "Reaching behind back, quick sudden movements.",
-            "easing_factors": "Heat, gentle pendulum movements.",
-            "radiation": "Down lateral upper arm.",
-            "red_flags": "Denies acute trauma.",
-            "social_history": "Executive secretary.",
-            "past_medical_history": "Type 2 Diabetes Mellitus.",
-            "diff_dx": "Adhesive Capsulitis (Frozen Shoulder)"
-        },
-        "Case 4": {
-            "name": "Oliver", "region_label": "Shoulder", "forthcomingness": 1,
-            "demeanor": "Young swimmer, frequently clicking shoulder.",
-            "chief_complaint": "Shoulder feels like it slips out of place during swim stroke.",
-            "history_present_illness": "Sensation of instability and dead arm feeling during overhead activity.",
-            "location_pain": "Anterior shoulder joint line.",
-            "onset_pain": "Recurrent over 6 months.",
-            "type_pain": "Apprehension, slipping catch.",
-            "aggravating_factors": "Abduction and external rotation position.",
-            "easing_factors": "Resting arm at side.",
-            "radiation": "Transient numbness down arm during slipping episode.",
-            "red_flags": "Prior dislocation 1 year ago.",
-            "social_history": "Competitive collegiate swimmer.",
-            "past_medical_history": "Anterior shoulder dislocation.",
-            "diff_dx": "Anterior Shoulder Instability / Labral Pathology (Bankart/SLAP)"
-        },
-        "Case 5": {
-            "name": "Patricia", "region_label": "Shoulder", "forthcomingness": 1,
-            "demeanor": "Points directly with finger to top of shoulder joint.",
-            "chief_complaint": "Pain at top of shoulder when carrying heavy shopping bags or crossing arm.",
-            "history_present_illness": "Developing over 3 months after starting cross-fit training.",
-            "location_pain": "Superior acromioclavicular joint region.",
-            "onset_pain": "Gradual onset over 12 weeks.",
-            "type_pain": "Sharp focal ache.",
-            "aggravating_factors": "Cross-body adduction, bench press, sleeping on side.",
-            "easing_factors": "Avoiding overhead chest presses, NSAIDs.",
-            "radiation": "Neck and upper trapezius localized.",
-            "red_flags": "No deformity or step-off present.",
-            "social_history": "Cross-fit enthusiast.",
-            "past_medical_history": "None.",
-            "diff_dx": "Acromioclavicular Joint Osteoarthritis / Sprain"
-        },
-        "Case 6": {
-            "name": "Quentin", "region_label": "Shoulder", "forthcomingness": 1,
-            "demeanor": "Rubbing front of biceps arm area.",
-            "chief_complaint": "Throbbing pain in front of shoulder with audible clicking when rotating arm.",
-            "history_present_illness": "Started after repetitive wood splitting 3 weeks ago.",
-            "location_pain": "Anterior bicipital groove.",
-            "onset_pain": "Subacute onset 21 days ago.",
-            "type_pain": "Localized ache and snapping sensation.",
-            "aggravating_factors": "Repetitive lifting, forearm supination with elbow flexed.",
-            "easing_factors": "Ice, rest.",
-            "radiation": "Down anterior biceps belly.",
-            "red_flags": "No 'Popeye' muscle deformity noted.",
-            "social_history": "Landscape gardener.",
-            "past_medical_history": "None.",
-            "diff_dx": "Biceps Tendinopathy / Tenosynovitis"
-        }
-    },
-    "Elbow": {
-        "Case 1": {
-            "name": "Rachel", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Rubs lateral aspect of elbow, flexes wrist tentatively.",
-            "chief_complaint": "Pain on outer elbow when lifting coffee cup or turning doorknobs.",
-            "history_present_illness": "Developing over 2 months after increased computer mouse usage and tennis playing.",
-            "location_pain": "Lateral epicondyle extending into wrist extensor mass.",
-            "onset_pain": "Insidious onset 8 weeks ago.",
-            "type_pain": "Burning ache, sharp with gripping.",
-            "aggravating_factors": "Gripping objects, wrist extension under resistance, shaking hands.",
-            "easing_factors": "Counterforce elbow strap, rest, ice.",
-            "radiation": "Dorsal forearm down toward wrist.",
-            "red_flags": "Denies hand weakness or numbness.",
-            "social_history": "Recreational tennis player, administrative manager.",
-            "past_medical_history": "None.",
-            "diff_dx": "Lateral Elbow Tendinopathy (Lateral Epicondylalgia / Tennis Elbow)"
-        },
-        "Case 2": {
-            "name": "Steven", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Cradles medial elbow with opposite hand.",
-            "chief_complaint": "Inner elbow pain during golf swing impact and carrying heavy buckets.",
-            "history_present_illness": "Pain worsened over 6 weeks of golf practice.",
-            "location_pain": "Medial epicondyle and flexor-pronator mass origin.",
-            "onset_pain": "Gradual onset over 6 weeks.",
-            "type_pain": "Aching pain, sharp with wrist flexion/pronation.",
-            "aggravating_factors": "Golfing, forceful wrist flexion, lifting palm up.",
-            "easing_factors": "Rest, thermal packs.",
-            "radiation": "Anteromedial forearm.",
-            "red_flags": "Denies ulnar nerve tingling in 4th/5th digits.",
-            "social_history": "Avid golfer, plumber.",
-            "past_medical_history": "None.",
-            "diff_dx": "Medial Elbow Tendinopathy (Medial Epicondylalgia / Golfer's Elbow)"
-        },
-        "Case 3": {
-            "name": "Tanya", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Shakes out small finger and ring finger repeatedly.",
-            "chief_complaint": "Numbness and tingling in pinky finger and elbow pain after flexed sitting.",
-            "history_present_illness": "Tingling started 1 month ago, worse when leaning elbow on desk.",
-            "location_pain": "Posteromedial elbow (cubital tunnel area).",
-            "onset_pain": "Gradual onset 4 weeks ago.",
-            "type_pain": "Paresthesias, dysesthesias, dull ache.",
-            "aggravating_factors": "Sustained elbow flexion, sleeping with arms folded, leaning on elbows.",
-            "easing_factors": "Extending elbow, elbow night splinting.",
-            "radiation": "Medial forearm to 4th and 5th digits.",
-            "red_flags": "Mild intrinsic hand muscle weakness developing.",
-            "social_history": "Call center representative.",
-            "past_medical_history": "None.",
-            "diff_dx": "Cubital Tunnel Syndrome (Ulnar Nerve Entrapment)"
-        },
-        "Case 4": {
-            "name": "Ulysses", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Large soft egg-shaped swelling visible behind tip of elbow.",
-            "chief_complaint": "Swelling behind elbow joint after leaning on hard desk for weeks.",
-            "history_present_illness": "Fluid bag appeared 2 weeks ago, mild dull pressure.",
-            "location_pain": "Posterior olecranon process.",
-            "onset_pain": "Gradual painless swelling over 14 days.",
-            "type_pain": "Fullness, mild tender pressure.",
-            "aggravating_factors": "Direct pressure resting elbow on table.",
-            "easing_factors": "Compression sleeve, elevation.",
-            "radiation": "None.",
-            "red_flags": "No erythema, skin warmth, systemic fever, or purulent fluid.",
-            "social_history": "Draftsman.",
-            "past_medical_history": "Gout.",
-            "diff_dx": "Olecranon Bursitis (Aseptic)"
-        },
-        "Case 5": {
-            "name": "Victoria", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Arm held in neutral flexion, cautious on rotation.",
-            "chief_complaint": "Deep anterior elbow pain after sudden heavy deadlift flex.",
-            "history_present_illness": "Felt popping sensation in anterior elbow during weightlifting 5 days ago.",
-            "location_pain": "Anterior cubital fossa over radial tuberosity.",
-            "onset_pain": "Acute traumatic onset 5 days ago.",
-            "type_pain": "Deep tear pain, weakness in supination.",
-            "aggravating_factors": "Forearm supination against resistance, elbow flexion.",
-            "easing_factors": "Flexed arm support.",
-            "radiation": "Proximal anterior forearm.",
-            "red_flags": "Mild ecchymosis, palpable distal biceps tendon present with strain.",
-            "social_history": "Weightlifter.",
-            "past_medical_history": "Anabolic use history.",
-            "diff_dx": "Distal Biceps Tendon Strain / Partial Tear"
-        },
-        "Case 6": {
-            "name": "Walter", "region_label": "Elbow", "forthcomingness": 1,
-            "demeanor": "Holds elbow in 90 degrees flexion, unable to extend.",
-            "chief_complaint": "Elbow pain and mechanical locking after fall on outstretched hand.",
-            "history_present_illness": "Fell off bicycle 1 week ago, elbow jammed into extension.",
-            "location_pain": "Lateral radial head and posterior elbow.",
-            "onset_pain": "Acute onset 7 days ago.",
-            "type_pain": "Sharp catching pain.",
-            "aggravating_factors": "Forearm pronation/supination, terminal elbow extension.",
-            "easing_factors": "Immobilization.",
-            "radiation": "Lateral forearm.",
-            "red_flags": "True mechanical block to full passive motion.",
-            "social_history": "Cyclist.",
-            "past_medical_history": "None.",
-            "diff_dx": "Radial Head Fracture / Intra-articular Loose Body"
-        }
-    },
-    "Wrist and Hand": {
-        "Case 1": {
-            "name": "Xena", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Shaking wrist and rubbing palm, flicking hand.",
-            "chief_complaint": "Nighttime numbness in thumb, index, and middle fingers waking her up.",
-            "history_present_illness": "Symptoms worsening over 3 months; drops small items like needles.",
-            "location_pain": "Palmar aspect of wrist radiating into radial digits.",
-            "onset_pain": "Insidious 12-week progression.",
-            "type_pain": "Burning tingling paresthesias, nocturnal ache.",
-            "aggravating_factors": "Sustained wrist flexion, driving, holding phone.",
-            "easing_factors": "Shaking hand ('flick sign'), wrist cock-up splint.",
-            "radiation": "Median nerve distribution (Digits 1-3 and radial half of 4).",
-            "red_flags": "Thenar eminence mild atrophy, loss of two-point discrimination.",
-            "social_history": "Assembly line worker.",
-            "past_medical_history": "Hypothyroidism, Pregnancy 3rd trimester.",
-            "diff_dx": "Carpal Tunnel Syndrome (Median Nerve Entrapment)"
-        },
-        "Case 2": {
-            "name": "Yusuf", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Holding thumb rigid, avoids thumb movement.",
-            "chief_complaint": "Sharp radial wrist pain when lifting baby or wringing out cloths.",
-            "history_present_illness": "Onset 4 weeks ago after birth of new grandchild.",
-            "location_pain": "Radial styloid process and 1st dorsal compartment.",
-            "onset_pain": "Gradual onset over 1 month.",
-            "type_pain": "Sharp catching pain over thumb tendon.",
-            "aggravating_factors": "Thumb ulnar deviation with flexed thumb (Finkelstein motion), lifting.",
-            "easing_factors": "Thumb spica splint, resting thumb.",
-            "radiation": "Dorsal thumb and lateral forearm.",
-            "red_flags": "No swelling over anatomical snuffbox bone.",
-            "social_history": "New parent / primary caregiver.",
-            "past_medical_history": "None.",
-            "diff_dx": "De Quervain's Tenosynovitis"
-        },
-        "Case 3": {
-            "name": "Zachary", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Massaging base of thumb continuously.",
-            "chief_complaint": "Deep ache at base of thumb when opening jars or turning keys.",
-            "history_present_illness": "Chronic progressive thumb stiffness over past 2 years.",
-            "location_pain": "1st Carpometacarpal (CMC) joint base of thumb.",
-            "onset_pain": "Chronic insidious onset.",
-            "type_pain": "Deep grinding ache.",
-            "aggravating_factors": "Pinching, gripping, twisting jar lids.",
-            "easing_factors": "Heat, topical NSAID gel, thumb immobilization.",
-            "radiation": "Thenar eminence.",
-            "red_flags": "Prominent square deformity at 1st CMC joint.",
-            "social_history": "Retired seamstress.",
-            "past_medical_history": "General Osteoarthritis.",
-            "diff_dx": "First Carpometacarpal (CMC) Joint Osteoarthritis"
-        },
-        "Case 4": {
-            "name": "Abigail", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Points to smooth cyst bump on back of wrist.",
-            "chief_complaint": "Visible bump on back of wrist causing dull ache when pressing up off floor.",
-            "history_present_illness": "Noticed small fluid-filled lump 2 months ago that fluctuates in size.",
-            "location_pain": "Dorsal scapholunate joint area of wrist.",
-            "onset_pain": "Gradual onset over 8 weeks.",
-            "type_pain": "Dull localized pressure ache.",
-            "aggravating_factors": "End-range wrist extension (e.g. push-ups).",
-            "easing_factors": "Rest, neutral wrist positioning.",
-            "radiation": "None.",
-            "red_flags": "Transilluminates with light, soft non-tender mobile mass.",
-            "social_history": "Yoga instructor.",
-            "past_medical_history": "None.",
-            "diff_dx": "Dorsal Wrist Ganglion Cyst"
-        },
-        "Case 5": {
-            "name": "Brian", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Holding wrist splinted, tender anatomical snuffbox.",
-            "chief_complaint": "Pain at thumb base after falling onto outstretched hand playing basketball.",
-            "history_present_illness": "Fell 10 days ago; thought it was a simple sprain, but pain persists.",
-            "location_pain": "Anatomical snuffbox / Scaphoid bone.",
-            "onset_pain": "Acute traumatic onset 10 days ago.",
-            "type_pain": "Deep dull ache, point tenderness.",
-            "aggravating_factors": "Wrist extension, radial deviation, axial loading of thumb.",
-            "easing_factors": "Immobilization.",
-            "radiation": "Radial side of wrist.",
-            "red_flags": "Exquisite tenderness over scaphoid tubercle and snuffbox.",
-            "social_history": "Student athlete.",
-            "past_medical_history": "None.",
-            "diff_dx": "Scaphoid Fracture"
-        },
-        "Case 6": {
-            "name": "Catherine", "region_label": "Wrist and Hand", "forthcomingness": 1,
-            "demeanor": "Finger flexed into palm, uses other hand to snap it straight.",
-            "chief_complaint": "Ring finger gets stuck in palm and pops open with sharp pain.",
-            "history_present_illness": "Finger catching began 3 weeks ago, worse in early mornings.",
-            "location_pain": "A1 pulley area at distal palmar crease.",
-            "onset_pain": "Subacute onset 21 days ago.",
-            "type_pain": "Sharp catching pain and palpable nodule click.",
-            "aggravating_factors": "Full fist closure, gripping steering wheel.",
-            "easing_factors": "Manually extending finger using opposite hand.",
-            "radiation": "Up flexor tendon into digit.",
-            "red_flags": "Palpable tender nodule at A1 pulley.",
-            "social_history": "Gardener, heavy pruning sheath user.",
-            "past_medical_history": "Rheumatoid Arthritis.",
-            "diff_dx": "Stenosing Tenosynovitis (Trigger Finger)"
-        }
-    },
-    "Hip": {
-        "Case 1": {
-            "name": "Robert", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Walking with slight limp, rubs anterior groin when sitting.",
-            "chief_complaint": "Deep groin pinching pain when getting out of car or squatting.",
-            "history_present_illness": "Deep groin stiffness developed over 4 months.",
-            "location_pain": "Anterior groin and lateral hip ('C-sign').",
-            "onset_pain": "Insidious onset.",
-            "type_pain": "Deep pinching ache.",
-            "aggravating_factors": "Deep hip flexion, prolonged sitting, twisting on planted foot.",
-            "easing_factors": "Walking on flat ground, NSAIDs.",
-            "radiation": "Anterior thigh down toward knee.",
-            "red_flags": "Denies night pain, unexplained weight loss, or fever.",
-            "social_history": "Former recreational soccer player.",
-            "past_medical_history": "None.",
-            "diff_dx": "Femoroacetabular Impingement (FAI) / Labral Tear"
-        },
-        "Case 2": {
-            "name": "Deborah", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Massaging lateral outer thigh, unable to sleep on affected side.",
-            "chief_complaint": "Sharp pain on outside of hip when lying down or climbing stairs.",
-            "history_present_illness": "Pain started 2 months ago after increasing walking program.",
-            "location_pain": "Greater trochanter lateral hip extending to lateral IT band.",
-            "onset_pain": "Gradual onset over 8 weeks.",
-            "type_pain": "Sharp when lying directly on side, dull ache after activity.",
-            "aggravating_factors": "Direct pressure lying on side, stair climbing, single-leg stance.",
-            "easing_factors": "Sleeping with pillow between knees, rest.",
-            "radiation": "Lateral thigh down to lateral knee.",
-            "red_flags": "No true intra-articular groin pinching or hip joint locking.",
-            "social_history": "Active retiree, power walker.",
-            "past_medical_history": "None.",
-            "diff_dx": "Greater Trochanteric Pain Syndrome (Gluteal Tendinopathy / Bursitis)"
-        },
-        "Case 3": {
-            "name": "Ethan", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Elderly male using walking cane, stiff gait.",
-            "chief_complaint": "Severe hip stiffness in morning making putting on socks difficult.",
-            "history_present_illness": "Progressive groin stiffness and hip pain over past 3 years.",
-            "location_pain": "Deep anterior groin and buttocks.",
-            "onset_pain": "Chronic insidious progression.",
-            "type_pain": "Grinding dull ache, severe start-up stiffness.",
-            "aggravating_factors": "Weight-bearing, cold damp weather, prolonged walking.",
-            "easing_factors": "Warm shower, gentle movement after start-up, analgesics.",
-            "radiation": "Anterior thigh to anterior medial knee.",
-            "red_flags": "Capsular pattern restriction (Internal Rotation markedly reduced).",
-            "social_history": "Retired farmer.",
-            "past_medical_history": "Primary Osteoarthritis.",
-            "diff_dx": "Hip Joint Osteoarthritis"
-        },
-        "Case 4": {
-            "name": "Faith", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Young long-distance runner, pointing to ischial tuberosity.",
-            "chief_complaint": "Deep buttock pain when sitting on hard chairs and accelerating during runs.",
-            "history_present_illness": "Ache developed 5 weeks ago during marathon training expansion.",
-            "location_pain": "Ischial tuberosity and proximal hamstring origin.",
-            "onset_pain": "Gradual onset over 5 weeks.",
-            "type_pain": "Deep aching strain, sharp with high-speed running.",
-            "aggravating_factors": "Prolonged sitting on firm surfaces, deep forward lunges, hill running.",
-            "easing_factors": "Standing, sitting on donut cushion, ice.",
-            "radiation": "Posterior upper thigh.",
-            "red_flags": "Denies radicular leg tingling or foot numbness.",
-            "social_history": "Marathon runner.",
-            "past_medical_history": "None.",
-            "diff_dx": "Proximal Hamstring Tendinopathy"
-        },
-        "Case 5": {
-            "name": "Gavin", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Hand placed deep in anterior groin flexor fold.",
-            "chief_complaint": "Snapping sensation in front of hip when swinging leg back and forth.",
-            "history_present_illness": "Audible pop and catch in groin during dance practice for 1 month.",
-            "location_pain": "Anterior iliopsoas tendon area.",
-            "onset_pain": "Insidious onset 4 weeks ago.",
-            "type_pain": "Painless or mildly aching audible snap.",
-            "aggravating_factors": "Moving hip from flexed-abducted position into extension.",
-            "easing_factors": "Rest, gentle hip flexor stretches.",
-            "radiation": "None.",
-            "red_flags": "No true joint locking or giving way.",
-            "social_history": "Ballet dancer.",
-            "past_medical_history": "None.",
-            "diff_dx": "Internal Coxa Saltans (Iliopsoas Snapping Hip)"
-        },
-        "Case 6": {
-            "name": "Heather", "region_label": "Hip", "forthcomingness": 1,
-            "demeanor": "Antalgic gait, non-weight bearing on left side with crutches.",
-            "chief_complaint": "Severe deep groin pain on weight-bearing after high-energy fall.",
-            "history_present_illness": "Slipped on ice 2 days ago, landed hard on lateral hip.",
-            "location_pain": "Deep anterior groin and trochanteric region.",
-            "onset_pain": "Acute traumatic onset 48 hours ago.",
-            "type_pain": "Severe sharp pain with weight-bearing.",
-            "aggravating_factors": "Any attempt to bear weight or rotate hip passively.",
-            "easing_factors": "Complete rest, supine positioning.",
-            "radiation": "Thigh and groin.",
-            "red_flags": "Inability to bear weight (>4 steps), limb shortened and externally rotated.",
-            "social_history": "Retired administrative assistant.",
-            "past_medical_history": "Osteopenia.",
-            "diff_dx": "Femoral Neck Stress Fracture / Femoral Fracture"
         }
     },
     "Knee": {
@@ -766,233 +300,20 @@ DEFAULT_CASE_LIBRARY = {
             "social_history": "Basketball player.",
             "past_medical_history": "None.",
             "diff_dx": "Anterior Cruciate Ligament (ACL) Tear"
-        },
-        "Case 2": {
-            "name": "Jessica", "region_label": "Knee", "forthcomingness": 1,
-            "demeanor": "Pointing to medial joint line, walks cautiously.",
-            "chief_complaint": "Joint line pain and catching sensation when squatting.",
-            "history_present_illness": "Knee twisted while gardening 3 weeks ago; persistent clicking inside knee.",
-            "location_pain": "Medial joint line.",
-            "onset_pain": "Subacute onset 21 days ago.",
-            "type_pain": "Sharp catching pain, intermittent delayed swelling.",
-            "aggravating_factors": "Deep squatting, twisting on flexed knee, duck walking.",
-            "easing_factors": "Rest, keeping knee straight.",
-            "radiation": "Posteromedial knee.",
-            "red_flags": "Intermittent mechanical locking during terminal extension.",
-            "social_history": "Landscape designer.",
-            "past_medical_history": "None.",
-            "diff_dx": "Medial Meniscal Tear"
-        },
-        "Case 3": {
-            "name": "Klaus", "region_label": "Knee", "forthcomingness": 1,
-            "demeanor": "Cupping hand over patella while walking up stairs.",
-            "chief_complaint": "Aching pain behind kneecap when walking down stairs or sitting long.",
-            "history_present_illness": "Vague knee ache worsened over 2 months after increasing running mileage.",
-            "location_pain": "Retro-patellar and peri-patellar anterior knee.",
-            "onset_pain": "Insidious onset over 8 weeks.",
-            "type_pain": "Dull grinding ache, 'movie-theater sign' after long sitting.",
-            "aggravating_factors": "Descending stairs, squatting, prolonged sitting with knees flexed.",
-            "easing_factors": "Extending knee straight, patellar taping, ice.",
-            "radiation": "Anterior knee.",
-            "red_flags": "Crepitus present, no joint effusion.",
-            "social_history": "Recreational runner.",
-            "past_medical_history": "None.",
-            "diff_dx": "Patellofemoral Pain Syndrome (PFPS)"
-        },
-        "Case 4": {
-            "name": "Leah", "region_label": "Knee", "forthcomingness": 1,
-            "demeanor": "Pointing to tendon right below kneecap.",
-            "chief_complaint": "Sharp pain below kneecap during jumping and sprinting drills.",
-            "history_present_illness": "Started 1 month ago during volleyball preseason training.",
-            "location_pain": "Inferior pole of patella and patellar tendon.",
-            "onset_pain": "Gradual onset over 4 weeks.",
-            "type_pain": "Sharp focal pain with impact, stiff after rest.",
-            "aggravating_factors": "Jumping, landing, heavy squats, quick decelerations.",
-            "easing_factors": "Heat before activity, patellar tendon strap, rest.",
-            "radiation": "Patellar tendon body to tibial tuberosity.",
-            "red_flags": "No defect in tendon continuity.",
-            "social_history": "Volleyball player.",
-            "past_medical_history": "None.",
-            "diff_dx": "Patellar Tendinopathy (Jumper's Knee)"
-        },
-        "Case 5": {
-            "name": "Michael", "region_label": "Knee", "forthcomingness": 1,
-            "demeanor": "Massaging medial shin right below knee joint line.",
-            "chief_complaint": "Pain inside upper shin below joint line when rising from chair.",
-            "history_present_illness": "Developing over 6 weeks in obese patient with medial knee arthritis.",
-            "location_pain": "Anteromedial proximal tibia (pes anserinus region).",
-            "onset_pain": "Gradual onset over 6 weeks.",
-            "type_pain": "Localized tenderness and ache.",
-            "aggravating_factors": "Stair climbing, crossing legs, sit-to-stand transfers.",
-            "easing_factors": "Rest, local ice, sleeping with pillow between knees.",
-            "radiation": "Medial upper calf.",
-            "red_flags": "No intra-articular joint line tenderness.",
-            "social_history": "Office clerk.",
-            "past_medical_history": "Medial Knee Osteoarthritis, Obesity.",
-            "diff_dx": "Pes Anserine Bursitis / Tendinopathy"
-        },
-        "Case 6": {
-            "name": "Nina", "region_label": "Knee", "forthcomingness": 1,
-            "demeanor": "Holding outer side of knee, rubbing lateral femoral condyle.",
-            "chief_complaint": "Sharp stinging pain on outer knee at 30 degrees knee bend during runs.",
-            "history_present_illness": "Pain appears consistently at 2-mile mark during running for past month.",
-            "location_pain": "Lateral femoral epicondyle.",
-            "onset_pain": "Insidious onset 4 weeks ago.",
-            "type_pain": "Sharp repetitive friction sting.",
-            "aggravating_factors": "Downhill running, repetitive flex-extension near 30 degrees.",
-            "easing_factors": "Stopping running, straight leg walking, foam rolling tensor fasciae latae.",
-            "radiation": "Up lateral thigh along IT band.",
-            "red_flags": "Joint line non-tender, no joint effusion.",
-            "social_history": "Distance runner.",
-            "past_medical_history": "None.",
-            "diff_dx": "Iliotibial Band Friction Syndrome (ITBS)"
-        }
-    },
-    "Ankle and Foot": {
-        "Case 1": {
-            "name": "Oscar", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Limping, swollen lateral ankle visible with bruising.",
-            "chief_complaint": "Twisted ankle landing on opponent's foot during basketball.",
-            "history_present_illness": "Inversion trauma 2 days ago; immediate lateral ankle swelling.",
-            "location_pain": "Anterior talofibular ligament (ATFL) and calcaneofibular ligament (CFL).",
-            "onset_pain": "Acute traumatic onset 48 hours ago.",
-            "type_pain": "Throbbing, sharp with weight-bearing or inversion.",
-            "aggravating_factors": "Weight-bearing, passive plantarflexion and inversion.",
-            "easing_factors": "RICE protocol, ankle brace, crutches.",
-            "radiation": "Lateral foot dorsum.",
-            "red_flags": "Able to walk 4 steps (Ottawa Ankle Rules negative for fracture).",
-            "social_history": "Rec basketball player.",
-            "past_medical_history": "None.",
-            "diff_dx": "Lateral Ankle Sprain (Grade II ATFL/CFL)"
-        },
-        "Case 2": {
-            "name": "Paula", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Grit teeth taking first few steps in clinic room.",
-            "chief_complaint": "Excruciating stabbing heel pain during first steps out of bed in morning.",
-            "history_present_illness": "Heel pain worsening over 3 months; eases slightly after walking then aches.",
-            "location_pain": "Medial tubercle of calcaneus on plantar aspect.",
-            "onset_pain": "Insidious onset 12 weeks ago.",
-            "type_pain": "Sharp stabbing during first steps, dull throb after rest.",
-            "aggravating_factors": "First morning steps, standing after sitting, bare foot walking on tile.",
-            "easing_factors": "Calf stretching, supportive footwear with arch support, ice bottle rolling.",
-            "radiation": "Along plantar fascia arch toward toes.",
-            "red_flags": "No tingling in heel pad or sole.",
-            "social_history": "Retail sales worker standing 8 hours/day.",
-            "past_medical_history": "High BMI.",
-            "diff_dx": "Plantar Fasciitis"
-        },
-        "Case 3": {
-            "name": "Quinn", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Rubbing posterior Achilles heel region.",
-            "chief_complaint": "Stiffness and burning pain behind ankle during morning walk.",
-            "history_present_illness": "Developing over 6 weeks after starting plyometric jump workouts.",
-            "location_pain": "Mid-portion Achilles tendon (2-6cm proximal to insertion).",
-            "onset_pain": "Gradual onset over 6 weeks.",
-            "type_pain": "Stiff ache, sharp with push-off phase of gait.",
-            "aggravating_factors": "Pushing off, hill climbing, running, calf raises.",
-            "easing_factors": "Heel lift inserts, eccentric calf loading, rest.",
-            "radiation": "Up posterior lower calf.",
-            "red_flags": "Tendon continuity intact, Thompson test negative.",
-            "social_history": "Cross-training athlete.",
-            "past_medical_history": "Fluoroquinolone antibiotic use 3 months ago.",
-            "diff_dx": "Mid-Portion Achilles Tendinopathy"
-        },
-        "Case 4": {
-            "name": "Rosa", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Pointing to 3rd and 4th toe interspace, taking off tight shoe.",
-            "chief_complaint": "Sensation of standing on a crumpled sock or pebble in shoe.",
-            "history_present_illness": "Burning ball-of-foot pain for 2 months, worse in narrow dress shoes.",
-            "location_pain": "3rd intermetatarsal space on plantar aspect.",
-            "onset_pain": "Gradual onset over 8 weeks.",
-            "type_pain": "Burning, tingling, sharp electric shoots into 3rd and 4th toes.",
-            "aggravating_factors": "High heels, narrow toe box shoes, running on ball of foot.",
-            "easing_factors": "Removing shoes, massaging metatarsal heads, wide footwear.",
-            "radiation": "Toes 3 and 4 digital webs.",
-            "red_flags": "Positive Mulder's click sign with squeeze test.",
-            "social_history": "Corporate executive.",
-            "past_medical_history": "None.",
-            "diff_dx": "Morton's Neuroma (Interdigital Neuroma)"
-        },
-        "Case 5": {
-            "name": "Samuel", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Holding high-ankle anterior area, walking with stiff leg.",
-            "chief_complaint": "Ankle pain above joint line after severe external rotation injury in football.",
-            "history_present_illness": "Tackled 4 days ago with foot planted and rotated outward.",
-            "location_pain": "Anterior inferior tibiofibular syndesmosis and interosseous membrane.",
-            "onset_pain": "Acute traumatic onset 4 days ago.",
-            "type_pain": "Severe sharp pain during weight-bearing push-off.",
-            "aggravating_factors": "Passive dorsiflexion and external rotation of foot, squeezing upper calf.",
-            "easing_factors": "Rigid boot immobilization, non-weight bearing.",
-            "radiation": "Up distal anterior shin.",
-            "red_flags": "Inability to perform single-leg hop, prolonged recovery expected.",
-            "social_history": "Football player.",
-            "past_medical_history": "None.",
-            "diff_dx": "High Ankle Sprain (Syndesmotic Ligament Complex Injury)"
-        },
-        "Case 6": {
-            "name": "Tina", "region_label": "Ankle and Foot", "forthcomingness": 1,
-            "demeanor": "Massaging medial inner ankle behind medial malleolus.",
-            "chief_complaint": "Inner ankle pain and flattening of foot arch over past 4 months.",
-            "history_present_illness": "Noticeable loss of foot arch height and pain behind inner ankle bone.",
-            "location_pain": "Posterior inferior medial malleolus and navicular tuberosity.",
-            "onset_pain": "Gradual progression over 16 weeks.",
-            "type_pain": "Aching weariness, sharp with heel raise.",
-            "aggravating_factors": "Prolonged walking, standing, single-leg heel raise attempt.",
-            "easing_factors": "Custom rigid orthotics, supportive boots.",
-            "radiation": "Medial plantar arch.",
-            "red_flags": "'Too many toes' sign positive from behind, inability to perform single heel raise.",
-            "social_history": "Store clerk.",
-            "past_medical_history": "Hypertension, Adult Acquired Flatfoot.",
-            "diff_dx": "Posterior Tibial Tendon Dysfunction (PTTD)"
         }
     }
 }
 
 # ==============================================================================
-# 4. PERSISTENT DISK & GITHUB STORAGE FUNCTIONS
+# 5. LOCAL DISK STORAGE FUNCTIONS
 # ==============================================================================
 def save_cases_to_disk(case_data):
     try:
         with open(DATA_FILE, "w") as f:
             json.dump(case_data, f, indent=4)
-    except Exception:
-        pass
-
-    if GITHUB_TOKEN and GITHUB_REPO:
-        try:
-            clean_repo = GITHUB_REPO.replace("https://github.com/", "").replace(".git", "").strip("/")
-            url = f"https://api.github.com/repos/{clean_repo}/contents/{DATA_FILE}"
-            
-            headers = {
-                "Authorization": f"Bearer {GITHUB_TOKEN}",
-                "Accept": "application/vnd.github.v3+json",
-                "X-GitHub-Api-Version": "2022-11-28"
-            }
-
-            get_res = requests.get(url, headers=headers)
-            sha = ""
-            if get_res.status_code == 200:
-                sha = get_res.json().get("sha", "")
-
-            json_bytes = json.dumps(case_data, indent=4).encode("utf-8")
-            base64_content = base64.b64encode(json_bytes).decode("utf-8")
-
-            payload = {
-                "message": "Admin update: Sync cases.json via Streamlit UI",
-                "content": base64_content
-            }
-            if sha:
-                payload["sha"] = sha
-
-            put_res = requests.put(url, headers=headers, json=payload)
-            if put_res.status_code in [200, 201]:
-                st.toast("Saved permanently to GitHub repo!", icon="✅")
-            elif put_res.status_code == 404:
-                st.error("GitHub Sync Failed (404): Check GITHUB_REPO format (username/repo) and GITHUB_TOKEN write access.")
-            else:
-                st.error(f"GitHub Sync Failed ({put_res.status_code}): {put_res.json().get('message')}")
-        except Exception as err:
-            st.error(f"GitHub Sync Error: {err}")
+        st.toast("Case settings updated locally!", icon="✅")
+    except Exception as e:
+        st.error(f"Error saving cases to disk: {e}")
 
 def load_cases_from_disk():
     loaded_data = None
@@ -1019,7 +340,7 @@ def load_cases_from_disk():
     return loaded_data
 
 # ==============================================================================
-# 5. SESSION STATE INITIALIZATION
+# 6. SESSION STATE INITIALIZATION
 # ==============================================================================
 if "ccid" not in st.session_state:
     st.session_state.ccid = None
@@ -1037,6 +358,7 @@ if "objective_tests" not in st.session_state:
 if "initial_differentials" not in st.session_state:
     st.session_state.initial_differentials = ["", "", ""]
 
+# Phase 3 Structured Inputs
 if "tx_final_dx" not in st.session_state:
     st.session_state.tx_final_dx = ""
 if "tx_education" not in st.session_state:
@@ -1049,7 +371,7 @@ if "tx_strength" not in st.session_state:
     st.session_state.tx_strength = ""
 
 # ==============================================================================
-# 6. HELPER FUNCTIONS
+# 7. HELPER FUNCTIONS
 # ==============================================================================
 def get_forthcomingness_instruction(level):
     level = int(level)
@@ -1110,50 +432,56 @@ def match_objective_query(query_text, case_obj_data):
         return query_text.strip(), f"Evaluation of '{query_text.strip()}': No localized or specific pathological findings reproduced."
 
 # ==============================================================================
-# 7. STAGE 1: CCID SECURITY GATE
+# 8. LOGIN GATEWAY
 # ==============================================================================
 if not st.session_state.ccid:
-    st.title("🏥 MSK Clinical Assessment Simulator")
-    st.write("Enter your CCID badge number to start your clinical simulation.")
-    ccid_input = st.text_input("Institutional CCID Number:", placeholder="e.g., MGOERTZ99")
-    if st.button("Access Clinical Portal", type="primary"):
-        if ccid_input.strip():
-            st.session_state.ccid = ccid_input.strip()
-            st.rerun()
-        else:
-            st.warning("A valid CCID sequence is mandatory.")
+    st.markdown("<h1 style='text-align: center; color: #58A6FF;'>🩺 MSK Clinical Assessment Simulator</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8B949E;'>Standardized Patient Interaction & Case Assessment Suite</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.container():
+            st.markdown("### 🔐 User Authentication")
+            ccid_input = st.text_input("Enter Institutional CCID:", placeholder="e.g., MGOERTZE99")
+            if st.button("Access Clinical Portal", type="primary", use_container_width=True):
+                if ccid_input.strip():
+                    st.session_state.ccid = ccid_input.strip()
+                    st.rerun()
+                else:
+                    st.warning("A valid CCID sequence is mandatory.")
     st.stop()
 
 # ==============================================================================
-# 8. STAGE 2: NAVIGATION & SIDEBAR
+# 9. SIDEBAR CONTROL PANEL
 # ==============================================================================
-st.sidebar.title("🩺 Control Center")
+st.sidebar.markdown("### 🩺 Control Center")
 st.sidebar.markdown(f"**Active User:** `{st.session_state.ccid}`")
 
 nav_options = ["Student Portal"]
 if st.session_state.is_admin:
     nav_options.append("Admin/Instructor Editor")
 
-role = st.sidebar.radio("Navigation View:", nav_options)
+role = st.sidebar.radio("Navigation Mode:", nav_options)
 st.sidebar.markdown("---")
 
 if not st.session_state.is_admin:
-    with st.sidebar.expander("🔑 Admin Access"):
-        admin_pass = st.text_input("Enter Admin Password:", type="password")
-        if st.button("Unlock Admin Mode"):
-            if admin_pass == "admin":
+    with st.sidebar.expander("🔑 Admin Authorization"):
+        admin_pass = st.text_input("Admin Password:", type="password")
+        if st.button("Unlock Admin Mode", use_container_width=True):
+            if admin_pass == ADMIN_PASSWORD:
                 st.session_state.is_admin = True
                 st.success("Admin access granted!")
                 st.rerun()
             else:
-                st.error("Incorrect password.")
+                st.error("Invalid password.")
 else:
-    st.sidebar.success("🔓 Admin Mode Active")
-    if st.sidebar.button("Lock Admin Access"):
+    st.sidebar.success("🔓 Admin Mode Unlocked")
+    if st.sidebar.button("Lock Admin Access", use_container_width=True):
         st.session_state.is_admin = False
         st.rerun()
 
-if st.sidebar.button("Terminate Session"):
+st.sidebar.markdown("---")
+if st.sidebar.button("Terminate Session", use_container_width=True):
     st.session_state.ccid = None
     st.session_state.is_admin = False
     st.session_state.encounter_phase = 1
@@ -1168,7 +496,7 @@ if st.sidebar.button("Terminate Session"):
     st.rerun()
 
 # ==============================================================================
-# 9. STAGE 3: ADMIN CASE EDITOR
+# 10. ADMIN EDITOR VIEW
 # ==============================================================================
 if role == "Admin/Instructor Editor":
     st.title("🛠️ Admin Case Management Matrix")
@@ -1201,7 +529,7 @@ if role == "Admin/Instructor Editor":
     with st.form("admin_case_form"):
         st.subheader(f"Editing {selected_case_key}: Patient {case_data.get('name', '')} ({selected_category})")
         
-        tab1, tab2 = st.tabs(["🗣️ Subjective Case Parameters", "📊 Granular Objective Matrix"])
+        tab1, tab2 = st.tabs(["🗣️ Subjective Case Parameters", "📊 Objective Matrix"])
         
         with tab1:
             e_forthcoming = st.slider("Patient Forthcomingness (1-5):", 1, 5, int(case_data.get("forthcomingness", 1)))
@@ -1224,15 +552,13 @@ if role == "Admin/Instructor Editor":
                 e_diff = st.text_input("Master Diagnosis Key", value=case_data.get("diff_dx", ""))
 
         with tab2:
-            st.markdown(f"### Edit Objective Physical Exam Findings ({selected_category})")
-            st.caption("Customize movement breakdowns, specific anatomical structures, and special tests.")
-            
+            st.markdown(f"### Edit Physical Exam Findings ({selected_category})")
             edited_objective_data = {}
             for cat in OBJECTIVE_CATEGORIES:
                 current_val = case_data["objective_data"].get(cat, "")
                 edited_objective_data[cat] = st.text_area(f"📌 {cat}", value=current_val, height=100)
 
-        save_submitted = st.form_submit_button("Save Case Settings & Sync to GitHub", type="primary")
+        save_submitted = st.form_submit_button("Save Case Parameters", type="primary")
         
         if save_submitted:
             st.session_state.case_library[selected_category][selected_case_key].update({
@@ -1256,10 +582,10 @@ if role == "Admin/Instructor Editor":
             save_cases_to_disk(st.session_state.case_library)
 
 # ==============================================================================
-# 10. STAGE 4: STUDENT 3-PHASE CLINICAL SIMULATOR
+# 11. STUDENT ENCOUNTER PORTAL
 # ==============================================================================
 else:
-    st.title("🎓 Interactive 3-Phase Clinical Assessment")
+    st.title("🎓 Interactive Clinical Assessment")
     
     col_cat, col_case = st.columns(2)
     with col_cat:
@@ -1307,7 +633,7 @@ else:
         4: "Encounter Complete"
     }
     progress_val = {1: 0.25, 2: 0.50, 3: 0.75, 4: 1.0}[st.session_state.encounter_phase]
-    st.progress(progress_val, text=f"**Current Status:** {phase_names[st.session_state.encounter_phase]}")
+    st.progress(progress_val, text=f"**Status:** {phase_names[st.session_state.encounter_phase]}")
     st.markdown("---")
 
     # --------------------------------------------------------------------------
@@ -1320,14 +646,14 @@ else:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        if prompt := st.chat_input("Ask your patient a subjective history question..."):
+        if prompt := st.chat_input("Ask your patient a question..."):
             st.session_state.subjective_messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
                 if not client:
-                    st.error("GROQ_API_KEY missing from secrets.")
+                    st.error("GROQ_API_KEY is missing from Streamlit secrets.")
                 else:
                     try:
                         system_instruction = build_patient_instructions(active_case)
@@ -1352,21 +678,21 @@ else:
         def open_phase1_dialog():
             st.write("Enter your top 3 differential diagnoses based on the subjective history to unlock Phase 2.")
             with st.form("phase1_diff_form"):
-                dx1 = st.text_input("Primary Suspected Differential:", placeholder="e.g., Primary Pathology")
-                dx2 = st.text_input("Secondary Differential:", placeholder="e.g., Secondary Suspect")
-                dx3 = st.text_input("Tertiary Differential:", placeholder="e.g., Alternative Suspect")
+                dx1 = st.text_input("Primary Suspected Differential:")
+                dx2 = st.text_input("Secondary Differential:")
+                dx3 = st.text_input("Tertiary Differential:")
                 
                 if st.form_submit_button("Submit & Proceed to Objective Exam", type="primary"):
                     if not dx1.strip() or not dx2.strip() or not dx3.strip():
-                        st.error("Please fill in all 3 differential fields before proceeding.")
+                        st.error("Please complete all 3 differential fields.")
                     else:
                         st.session_state.initial_differentials = [dx1.strip(), dx2.strip(), dx3.strip()]
                         st.session_state.encounter_phase = 2
                         st.rerun()
 
-        if st.button("➡️ Move on to Objective Exam", type="primary", use_container_width=True):
+        if st.button("➡️ Move to Objective Exam", type="primary", use_container_width=True):
             if not st.session_state.subjective_messages:
-                st.warning("Please ask at least one subjective history question before moving on.")
+                st.warning("Please conduct history taking before proceeding.")
             else:
                 open_phase1_dialog()
 
@@ -1375,23 +701,23 @@ else:
     # --------------------------------------------------------------------------
     elif st.session_state.encounter_phase == 2:
         st.subheader("🔬 Phase 2: Objective Physical Examination")
-        st.write("Type what physical exam procedures or evaluations you want to perform.")
 
-        with st.expander("📌 Your Phase 1 Initial Differential Diagnoses"):
+        with st.expander("📌 Phase 1 Initial Differentials", expanded=False):
             for i, d in enumerate(st.session_state.initial_differentials, 1):
                 st.markdown(f"**{i}.** {d}")
 
-        st.markdown("### Request Physical Examination Procedures")
-        st.caption(f"Perform tests relevant to the **{student_category}** (e.g., MMT/Strength, Palpation, Special Tests, AROM/PROM)")
-        
-        user_test_query = st.text_input("Enter physical exam evaluation / test to perform:", key="test_input_field", placeholder=f"e.g., {student_category} strength testing or special tests")
+        st.markdown("### Physical Examination Requests")
+        user_test_query = st.text_input(
+            "Enter evaluation or test to perform:", 
+            key="test_input_field", 
+            placeholder=f"e.g., {student_category} special tests, AROM, or palpation"
+        )
 
-        if st.button("Execute Physical Examination Test", type="primary"):
+        if st.button("Execute Exam Procedure", type="primary"):
             if not user_test_query.strip():
-                st.warning("Please type a test or evaluation request first.")
+                st.warning("Please type a valid evaluation request.")
             else:
                 category_name, finding_text = match_objective_query(user_test_query, active_case.get("objective_data", {}))
-                
                 st.session_state.objective_tests.append({
                     "requested": user_test_query.strip(),
                     "category": category_name,
@@ -1403,17 +729,17 @@ else:
         st.markdown("### 📊 Physical Exam Charting Record")
         
         if not st.session_state.objective_tests:
-            st.info("No physical exam tests executed yet. Type an examination request above to evaluate.")
+            st.info("No physical exam tests recorded yet.")
         else:
             chart_df = pd.DataFrame(st.session_state.objective_tests)
             chart_df = chart_df[["requested", "category", "findings"]]
-            chart_df.columns = ["Student Requested Test", "Matched Category", "Specific Clinical Findings"]
+            chart_df.columns = ["Requested Test", "Category", "Clinical Findings"]
             st.dataframe(chart_df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
-        if st.button("➡️ Move on to Treatment Phase", type="primary", use_container_width=True):
+        if st.button("➡️ Proceed to Treatment Phase", type="primary", use_container_width=True):
             if not st.session_state.objective_tests:
-                st.warning("Please perform at least one objective evaluation before proceeding.")
+                st.warning("Perform at least one objective evaluation first.")
             else:
                 st.session_state.encounter_phase = 3
                 st.rerun()
@@ -1423,11 +749,10 @@ else:
     # --------------------------------------------------------------------------
     elif st.session_state.encounter_phase >= 3:
         st.subheader("💊 Phase 3: Treatment & Management Plan")
-        st.write("Synthesize your subjective and objective findings to formulate your final diagnosis and management strategy.")
 
-        with st.expander("🔍 Review Prior Phase Findings"):
+        with st.expander("🔍 Review Case Summary"):
             st.markdown("**Phase 1 Differentials:** " + ", ".join(st.session_state.initial_differentials))
-            st.markdown("**Phase 2 Objective Findings:**")
+            st.markdown("**Phase 2 Key Findings:**")
             for t in st.session_state.objective_tests:
                 st.markdown(f"- **{t['requested']}** ({t['category']}): {t['findings']}")
 
@@ -1435,15 +760,15 @@ else:
             with st.form("treatment_phase_form"):
                 st.markdown("### 📝 Clinical Management Plan")
                 
-                f_dx = st.text_input("1. Final Diagnosis:", placeholder=f"e.g., Primary {student_category} Pathology")
-                f_edu = st.text_area("2. Education:", placeholder="Patient reassurance, posture/ergonomic advice, prognosis...", height=100)
-                f_pain = st.text_area("3. Pain Management:", placeholder="Heat/ice, activity modification, movement breaks...", height=100)
-                f_mob = st.text_area("4. Mobility:", placeholder="Range of motion exercises, joint mobilizations, stretching...", height=100)
-                f_str = st.text_area("5. Strength:", placeholder="Progressive resistance exercises, stabilizer strengthening...", height=100)
+                f_dx = st.text_input("1. Final Diagnosis:")
+                f_edu = st.text_area("2. Patient Education:", height=80)
+                f_pain = st.text_area("3. Pain Management Strategy:", height=80)
+                f_mob = st.text_area("4. Mobility Prescription:", height=80)
+                f_str = st.text_area("5. Strength/Rehabilitation Plan:", height=80)
 
-                if st.form_submit_button("Submit Complete Treatment Plan", type="primary"):
+                if st.form_submit_button("Submit Complete Plan", type="primary"):
                     if not f_dx.strip() or not f_edu.strip() or not f_pain.strip() or not f_mob.strip() or not f_str.strip():
-                        st.error("Please complete all 5 text fields before submitting.")
+                        st.error("Please fill in all 5 management fields.")
                     else:
                         st.session_state.tx_final_dx = f_dx.strip()
                         st.session_state.tx_education = f_edu.strip()
@@ -1455,10 +780,9 @@ else:
 
         elif st.session_state.encounter_phase == 4:
             st.success("🎉 **Clinical Encounter Complete!**")
-            st.markdown(f"**Final Diagnosis:** {st.session_state.tx_final_dx}")
+            st.markdown(f"**Final Diagnosis:** `{st.session_state.tx_final_dx}`")
             
             st.markdown("---")
-            st.markdown("### Submitted Treatment Plan")
             col_a, col_b = st.columns(2)
             with col_a:
                 st.markdown("**Education:**")
@@ -1472,11 +796,11 @@ else:
                 st.info(st.session_state.tx_strength)
 
     # ==============================================================================
-    # 11. STAGE 5: FULL 3-PHASE TRANSCRIPT EXPORT
+    # 12. EXPORT ENCOUNTER TRANSCRIPT
     # ==============================================================================
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📄 Submission Records")
-    if st.sidebar.button("Compile Full 3-Phase Transcript"):
+    st.sidebar.subheader("📄 Export Records")
+    if st.sidebar.button("Compile Full Transcript", use_container_width=True):
         if not st.session_state.subjective_messages:
             st.sidebar.warning("No encounter data recorded.")
         else:
@@ -1515,8 +839,9 @@ else:
             export += f"==================================================\n"
                 
             st.sidebar.download_button(
-                label="📥 Download Full Transcript (.txt)",
+                label="📥 Download Transcript (.txt)",
                 data=export,
-                file_name=f"MSK_FullEncounter_{st.session_state.ccid}_{student_case_key}.txt",
-                mime="text/plain"
+                file_name=f"MSK_Transcript_{st.session_state.ccid}_{student_case_key}.txt",
+                mime="text/plain",
+                use_container_width=True
             )
