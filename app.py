@@ -652,30 +652,19 @@ else:
     st.markdown("---")
 
     # --------------------------------------------------------------------------
-    # PHASE 1: SUBJECTIVE HISTORY (SPLIT WORKSPACE LAYOUT)
+    # PHASE 1: SUBJECTIVE HISTORY (CLEAN SIDE-BY-SIDE LAYOUT)
     # --------------------------------------------------------------------------
     if st.session_state.encounter_phase == 1:
         st.subheader("🗣️ Phase 1: Interactive History Taking")
         
         col_left, col_right = st.columns([1, 1.6], gap="large")
         
-        # Left Panel: Patient Overview & Suggested History Questions
+        # Left Panel: Basic Patient Info & Action Button
         with col_left:
             st.markdown(f"### Patient: **{active_case.get('name', 'Unknown')}**")
-            st.markdown(f"**Visual Demeanor:** {active_case.get('demeanor', 'N/A')}")
             st.info(f"**Primary Complaint:** {active_case.get('chief_complaint', 'N/A')}")
             
-            with st.expander("💡 History Taking Prompts", expanded=True):
-                st.markdown("""
-                - *What brings you into the clinic today?*
-                - *Can you point to where the pain is most intense?*
-                - *How and when did these symptoms first begin?*
-                - *What specific movements make your symptoms worse or better?*
-                - *Does the pain travel or radiate anywhere else?*
-                - *Are you having any numbness, tingling, or weakness?*
-                """)
-            
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
             
             @st.dialog("Submit Initial Differential Diagnoses")
             def open_phase1_dialog():
