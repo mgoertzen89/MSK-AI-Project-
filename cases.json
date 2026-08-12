@@ -16,15 +16,15 @@
             "red_flags": "Denies upper extremity numbness, weakness, or clumsiness.",
             "social_history": "Software developer, works 10-hour days.",
             "past_medical_history": "None.",
-            "diff_dx": "Mechanical Neck Pain (Postural Strain)",
+            "diff_dx": "Mechanical Neck Pain",
             "objective_data": {
-                "Observation": "Forward head posture, protracted shoulder girdle, hypertonic upper trapezius visual bulk.",
-                "Active Range of Motion (AROM)": "Flexion: 40\u00b0 (Full = 50\u00b0). Extension: 45\u00b0 (Full = 60\u00b0). Left Rotation: 60\u00b0 painful at end-range (Full = 80\u00b0). Right Rotation: 70\u00b0. Side Bending B/L: 30\u00b0 painful.",
-                "Passive Range of Motion (PROM)": "Flexion: Full range with tissue-stretch end-feel. Extension: Full range. Rotation: 70\u00b0 with muscular tightness end-feel.",
-                "Strength / Resisted Isometrics": "Cervical Flexion: 4/5 painful. Cervical Extension: 5/5 pain-free. Cervical Side Bending B/L: 4+/5. Deep Cervical Flexors (CCFT): Impaired endurance.",
-                "Functional Testing": "Sustained Neck Flexion (Desk posture simulation): Reproduces familiar neck/upper back ache at 60 seconds.",
-                "Palpation": "Cervical Paraspinals (C4-C6): Moderately tender. Upper Trapezius & Levator Scapulae: Markedly tender with active trigger points. Spinous processes: Non-tender.",
-                "Special Tests": "Spurling Test: Positive for localized neck pain (Negative for arm radiculopathy). Cervical Distraction Test: Reduces feeling of heaviness. Upper Limb Tension Tests (ULTT 1/Median): Negative."
+                "Observation": "Forward head posture, protracted shoulder girdle",
+                "Active Range of Motion (AROM)": "Flexion: Full. Extension: 45\u00b0. Left Rotation: 60\u00b0 painful at end-range. Right Rotation: 70\u00b0. Side Bending B/L: 30\u00b0 painful.",
+                "Passive Range of Motion (PROM)": "Flexion: Full range with tissue-stretch end-feel. Extension: Full range. Rotation: 70\u00b0 with tissue stretch end feel and pain at end range. ",
+                "Strength / Resisted Isometrics": "Poor deep neck flexor strength, poor upper fiber trap strength, poor middle fiber trap strength",
+                "Functional Testing": "Repeated rotation causes pain. Sustained flexion >60 seconds causes pain",
+                "Palpation": "Cervical Paraspinals (C4-C6): Moderately tender. Upper Trapezius & Levator Scapulae: Markedly tender. Spinous processes: Non-tender.",
+                "Special Tests": "Spurling Test: Causes localized neck pain. Negative alar and transverse ligament stress tests. Negative myotomes, dermatomes, and reflexes. "
             }
         },
         "Case 2": {
